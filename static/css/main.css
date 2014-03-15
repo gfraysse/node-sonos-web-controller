@@ -213,6 +213,20 @@ h4 {
 	border-radius: 5px 5px 0 0;
 }
 
+/* 
+guigui 
+#music-sources-container h4 {
+	padding: 10px;
+	margin: 0;
+	border-bottom: 1px solid #000000;
+	border-radius: 5px 5px 0 0;
+	background-image:url('images/left_arrow.jpg');
+	background-position-x:left;
+	background-repeat:no-repeat;
+
+}
+*/
+
 #zone-wrapper {
 	border-top: #012947 solid 1px;
 }
@@ -431,6 +445,7 @@ h4 {
 }
 
 #favorites-container,
+#library-container,
 #queue-container {
 	margin: 0;
 	padding: 0;
@@ -441,6 +456,7 @@ h4 {
 }
 
 #favorites-container li,
+#library-container li,
 #queue-container li {
 	list-style: none;
 	margin: 0;
@@ -452,12 +468,14 @@ h4 {
 }
 
 #favorites-container li:hover,
+#library-container li:hover,
 #queue-container li:hover {
 	background: rgba(255,255,255,0.05);
 	outline: none;
 }
 
 #favorites-container li:focus,
+#library-container li:focus,
 #queue-container li:focus {
 	background: rgba(255,255,255,0.15);
 	outline: none;
@@ -466,6 +484,7 @@ h4 {
 
 
 #favorites-container li img,
+#library-container li img,
 #queue-container li img {
 	width: 40px;
 	height: 40px;
@@ -474,11 +493,13 @@ h4 {
 	display: inline-block;
 }
 
+#library-container li div,
 #queue-container li div {
 	display: inline-block;
 	width: calc(100% - 43px);
 }
 
+#library-container li div p,
 #queue-container li div p {
 	margin: 0;
 	line-height: 18px;
@@ -488,15 +509,18 @@ h4 {
 	white-space: nowrap;
 }
 
+#library-container li div p.artist,
 #queue-container li div p.artist {
 	color: #aaa;
 }
 
+#library-container li span,
 #favorites-container li span {
 	padding: 3px;
 	line-height: 22px;
 }
 
+#library-container {
 #queue-container {
 	height: calc(100% - 316px);
 }
