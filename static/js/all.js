@@ -16,7 +16,10 @@ var Sonos = {
 	}
 };
 
-var currentLibrary = 'artistLibrary';
+var currentLibrary = 'rootLibrary';
+var currentArtist = '';
+
+var rootLibraryMenuItems = [ 'Sonos Favorites', 'Music Library', 'Radio' ];
 
 ///
 /// GUI Init
@@ -140,9 +143,16 @@ socket.on('favorites', function (data) {
 	renderFavorites(data);
 });
 
-//guigui
+socket.on('root-menu', function (data) {
+	renderRootLibraryMenu(data);
+});
+
 socket.on('artists', function (data) {
 	renderArtists(data);
+});
+
+socket.on('radios', function (data) {
+	renderRadios(data);
 });
 
 socket.on('albums', function (data) {
@@ -152,7 +162,7 @@ socket.on('albums', function (data) {
 socket.on('albumTracks', function (data) {
 	renderAlbumTracks(data);
 });
-// </guigui>
+
 socket.on('queue', function (data) {
 	console.log("received queue", data.uuid);
 	if (data.uuid != Sonos.currentState.selectedZone) return;
@@ -234,64 +244,86 @@ document.getElementById('prev').addEventListener('click', function () {
 	socket.emit('transport-state', { uuid: Sonos.currentState.selectedZone, state: action });
 });
 
+document.getElementById('library-browser-back-button').addEventListener('click', function (e) {
+    // Order of pages to display is rootLibrary -> artistLibrary -> artistAlbumsLibrary -> albumLibrary or rootLibrary -> favoritesLibrary
+    console.log("library-browser-back-button clicked, currentLibrary=", currentLibrary);
+    if (currentLibrary == 'rootLibrary') {
+	socket.emit('library-root-menu');
+	currentLibrary = 'rootLibrary';
+	console.log("library-browser-back-button END, currentLibrary=", currentLibrary);
+	return;
+    }
+    if (currentLibrary == 'artistLibrary' || currentLibrary == 'favoritesLibrary') {
+	socket.emit('library-root-menu');
+	currentLibrary = 'rootLibrary';
+	console.log("library-browser-back-button END, currentLibrary=", currentLibrary);
+	return;
+    }
+    if (currentLibrary == 'albumLibrary') {
+	socket.emit('browse-artist', {uuid: Sonos.currentState.selectedZone, artist: currentArtist});
+	currentLibrary = 'artistAlbumsLibrary';
+	console.log("library-browser-back-button END, currentLibrary=", currentLibrary);
+	return;
+    }
+    if (currentLibrary == 'artistAlbumsLibrary') {
+	currentLibrary= 'artistLibrary';
+	socket.emit('list-artists', {uuid: Sonos.currentState.selectedZone});
+	console.log("library-browser-back-button END, currentLibrary=", currentLibrary);
+	return;
+    }
+    console.log("library-browser-back-button END ????, currentLibrary=", currentLibrary);
+});
+
 document.getElementById('music-sources-container').addEventListener('dblclick', function (e) {
-/*
-	function findFavoriteNode(currentNode) {
-		// If we are at top level, abort.
-		if (currentNode == this) return;
-		if (currentNode.tagName == "LI") return currentNode;
-		return findFavoriteNode(currentNode.parentNode);
+    function findNode(currentNode) {
+	// If we are at top level, abort.
+	if (currentNode == this) return;
+	if (currentNode.tagName == "LI") return currentNode;
+	return findNode(currentNode.parentNode);
+    }
+    var li = findNode(e.target);
+    //guigui
+    if (currentLibrary == 'rootLibrary') {
+	console.log("rootLibrary", li.textContent);
+	switch (li.textContent) {
+	    case rootLibraryMenuItems [0]:
+	    currentLibrary= 'favoritesLibrary';	    
+	    socket.emit('list-favorites', {uuid: Sonos.currentState.selectedZone});
+	    break;
+	    case rootLibraryMenuItems [1]:
+	    currentLibrary= 'artistLibrary';
+	    socket.emit('list-artists', {uuid: Sonos.currentState.selectedZone});
+	    break;
+	    case rootLibraryMenuItems [2]:
+	    currentLibrary= 'RadioLibrary';
+	    socket.emit('list-radios', {uuid: Sonos.currentState.selectedZone});
+	    break;
+	    default:
 	}
-	var li = findFavoriteNode(e.target);
-	socket.emit('play-favorite', {uuid: Sonos.currentState.selectedZone, favorite: li.dataset.title});
-*/
-//guigui
-	function findNode(currentNode) {
-		// If we are at top level, abort.
-		if (currentNode == this) return;
-		if (currentNode.tagName == "LI") return currentNode;
-		return findNode(currentNode.parentNode);
-	}
-	var li = findNode(e.target);
+	return;
+    }
     if (currentLibrary == 'favoritesLibrary') {
 	socket.emit('play-favorite', {uuid: Sonos.currentState.selectedZone, favorite: li.dataset.title});
 	currentLibrary= 'favoritesLibrary';
+	return;
     }
-// order is important as this is not a switch statement
     if (currentLibrary == 'albumLibrary') {
 	socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: li.dataset.title, uri: li.dataset.uri });
 	currentLibrary= 'albumLibrary';
+	return;
     }
     if (currentLibrary == 'artistAlbumsLibrary') {
 	socket.emit('browse-album', {uuid: Sonos.currentState.selectedZone, album: li.dataset.title});
 	currentLibrary= 'albumLibrary';
+	return;
     }
     if (currentLibrary == 'artistLibrary') {
 	socket.emit('browse-artist', {uuid: Sonos.currentState.selectedZone, artist: li.dataset.title});
+	currentArtist = li.dataset.title;
 	currentLibrary= 'artistAlbumsLibrary';
+	return;
     }
-
-/*
-	function findArtistNode(currentNode) {
-		// If we are at top level, abort.
-		if (currentNode == this) return;
-		if (currentNode.tagName == "LI") return currentNode;
-		return findArtistNode(currentNode.parentNode);
-	}
-	var li = findArtistNode(e.target);
-	socket.emit('browse-artist', {uuid: Sonos.currentState.selectedZone, artist: li.dataset.title});
-
-	function findAlbumNode(currentNode) {
-		// If we are at top level, abort.
-		if (currentNode == this) return;
-		if (currentNode.tagName == "LI") return currentNode;
-		return findAlbumNode(currentNode.parentNode);
-	}
-	var li = findAlbumNode(e.target);
-	socket.emit('browse-album', {uuid: Sonos.currentState.selectedZone, album: li.dataset.title});
-*/
 });
-//</guigui>
 
 document.getElementById('status-container').addEventListener('dblclick', function (e) {
 	function findQueueNode(currentNode) {
@@ -884,37 +916,48 @@ function reRenderZones() {
 }
 
 function renderFavorites(favorites) {
-	var oldContainer = document.getElementById('favorites-container');
-	var newContainer = oldContainer.cloneNode(false);
+    cleanLibrayContainer();
 
-	var i = 0;
-
-	favorites.forEach(function (favorite) {
-		var li = document.createElement('li');
-		li.dataset.title = favorite.title;
-		var span = document.createElement('span');
-		span.textContent = favorite.title;
-		var albumArt = document.createElement('img');
-		albumArt.src = favorite.albumArtURI;
-		li.appendChild(albumArt);
-		li.appendChild(span);
-		li.tabIndex = i++;
-		newContainer.appendChild(li);
-	});
-
-
-	oldContainer.parentNode.replaceChild(newContainer, oldContainer);
-}
-
-//guigui
-function renderArtists(artists) {
-    //var oldContainer = document.getElementById('artists-container');
+    //var oldContainer = document.getElementById('favorites-container');
     var oldContainer = document.getElementById('library-container');
     var newContainer = oldContainer.cloneNode(false);
 
     var i = 0;
 
+    favorites.forEach(function (favorite) {
+	var li = document.createElement('li');
+	li.dataset.title = favorite.title;
+	var span = document.createElement('span');
+	span.textContent = favorite.title;
+	var albumArt = document.createElement('img');
+	albumArt.src = favorite.albumArtURI;
+	li.appendChild(albumArt);
+	li.appendChild(span);
+	li.tabIndex = i++;
+	newContainer.appendChild(li);
+    });
+
+
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+}
+
+function renderArtists(artists) {
+    cleanLibrayContainer ();
+
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+
+    var i = 0;
+    var initial = "";
     artists.forEach(function (artist) {
+	// add a separator for every new startup letter
+	if (artist.title[0] != initial) {
+	    initial = artist.title[0];
+	    var heading = document.createElement('h4');
+	    heading.appendChild(document.createTextNode(initial));
+	    newContainer.appendChild(heading);
+	}
+
 	var li = document.createElement('li');
 	li.dataset.title = artist.title;
 	var span = document.createElement('span');
@@ -932,20 +975,8 @@ function renderArtists(artists) {
 }
 
 function renderAlbums(albums) {
-    //var container = document.getElementById('artists-container');
-    var container = document.getElementById('library-container');
-    var parChildren = container.children, tmpChildren = [], i, e;
-    var tmpArr = [];
-    for (i = 0, e = parChildren.length; i < e; i++) {
-        tmpArr.push(parChildren[i]);
-    }
+    cleanLibrayContainer();
 
-    for (i = 0; i < e; i++) {
-        container.removeChild(tmpArr[i]);
-    }
-    container.innerHtml ="";
-    console.log("removing content of artists <ul>");
-    //var oldContainer = document.getElementById('albums-container');
     var oldContainer = document.getElementById('library-container');
     var newContainer = oldContainer.cloneNode(false);
 
@@ -956,9 +987,12 @@ function renderAlbums(albums) {
 	li.dataset.title = album.title;
 	var span = document.createElement('span');
 	span.textContent = album.title;
-	var albumArt = document.createElement('img');
-	albumArt.src = album.albumArtURI;
-	li.appendChild(albumArt);
+	// Don't display album Art for the generic 'All' entry
+	if (album.title != "All") {
+	    var albumArt = document.createElement('img');
+	    albumArt.src = album.albumArtURI;
+	    li.appendChild(albumArt);
+	}
 	li.appendChild(span);
 	li.tabIndex = i++;
 	newContainer.appendChild(li);
@@ -968,8 +1002,29 @@ function renderAlbums(albums) {
     oldContainer.parentNode.replaceChild(newContainer, oldContainer);
 }
 
-function renderAlbumTracks(tracks) {
-    //var container = document.getElementById('albums-container');
+function renderRadios(radios) {
+    cleanLibrayContainer ();
+
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+
+    radios.forEach(function (radio) {
+	var li = document.createElement('li');
+	li.dataset.title = radio.title;
+	var span = document.createElement('span');
+	span.textContent = radio.title;
+	var albumArt = document.createElement('img');
+	albumArt.src = radio.albumArtURI;
+	li.appendChild(albumArt);
+	li.appendChild(span);
+	newContainer.appendChild(li);
+    });
+
+
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+}
+
+function cleanLibrayContainer () {
     var container = document.getElementById('library-container');
     var parChildren = container.children, tmpChildren = [], i, e;
     var tmpArr = [];
@@ -981,9 +1036,11 @@ function renderAlbumTracks(tracks) {
         container.removeChild(tmpArr[i]);
     }
     container.innerHtml ="";
-    console.log("removing content of albums <ul>");
+}
 
-    //var oldContainer = document.getElementById('tracks-container');
+function renderAlbumTracks(tracks) {
+    cleanLibrayContainer();
+
     var oldContainer = document.getElementById('library-container');
     var newContainer = oldContainer.cloneNode(false);
 
@@ -991,8 +1048,8 @@ function renderAlbumTracks(tracks) {
 
     tracks.forEach(function (track) {
 	var li = document.createElement('li');
-	li.dataset.title = track.title;//guigui uri instaed ?
-	li.dataset.uri = track.uri;//guigui uri instaed ?
+	li.dataset.title = track.title;
+	li.dataset.uri = track.uri;
 
 	var span = document.createElement('span');
 	span.textContent = track.title;
@@ -1021,7 +1078,24 @@ function renderAlbumTracks(tracks) {
 
     oldContainer.parentNode.replaceChild(newContainer, oldContainer);
 }
-// </guigui>
+
+function renderRootLibraryMenu(data) {
+    console.log('renderRootLibraryMenu');
+    cleanLibrayContainer();
+
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+
+    rootLibraryMenuItems.forEach(function (item) {
+	var li = document.createElement('li');
+	var span = document.createElement('span');
+	span.textContent = item;
+	li.appendChild(span);
+	newContainer.appendChild(li);
+    });
+
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+}
 
 function renderQueue(queue) {
 	var tempContainer = document.createDocumentFragment();
