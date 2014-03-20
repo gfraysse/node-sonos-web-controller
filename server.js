@@ -183,70 +183,29 @@ socketServer.sockets.on('connection', function (socket) {
 	socket.emit('root-menu');
     });
 
-  socket.on('browse-artist', function (data) {
-    console.log(data)
-    var player = discovery.getPlayerByUUID(data.uuid);
-    if (!player) return;
+    socket.on('browse-artist', function (data) {
+	console.log(data)
+	var player = discovery.getPlayerByUUID(data.uuid);
+	if (!player) return;
 
-    console.log("browse-artist guigui")
-// A:ARTIST, A:ALBUM (to search for albums), A:TRACKS (to search for tracks), or A:PLAYLISTS (to search playlists)
-      //player.browseArtist("A:ARTIST/"+data.artist, "0", "", data.artist, function (success, result) {
-    player.browse("A:ARTIST/"+data.artist, "0", "", function (success, result) {
-      if (success)      {
-	  console.log("browse-artist guigui YESSSS",result.title, result.uid, result.class);
-//	  result.container.forEach(function (item) {
-//	      console.log("item=", item);
-//	  });
-
-	  if (result.items) {
-	      console.log("browse-artist items found"+result.items.count);	      
-	      for (var i in result.items) {
-		  console.log("browse-artist GUIGUI, item :",i,",",result.items[i],",",result.items[i].title);	      
-	      }
-	  }
-	  else {
-		  console.log("browse-artist no item");	      
-	  }
-
-      }
-	else 
-	    console.log ("browse-artist hoho something went wrong");
-    console.log("browse-artist /guigui")
-    if (result.items) {
-	socket.emit('albums', result.items);
-    }
+	player.browse("A:ARTIST/"+data.artist, "0", "", function (success, result) {
+	    if (result.items) {
+		socket.emit('albums', result.items);
+	    }
+	});
     });
-  });
 
-  socket.on('browse-album', function (data) {
-    console.log(data)
-    var player = discovery.getPlayerByUUID(data.uuid);
-    if (!player) return;
+    socket.on('browse-album', function (data) {
+	console.log(data)
+	var player = discovery.getPlayerByUUID(data.uuid);
+	if (!player) return;
 
-    console.log("browse-album guigui")
-// A:ARTIST, A:ALBUM (to search for albums), A:TRACKS (to search for tracks), or A:PLAYLISTS (to search playlists)
-    player.browse("A:ALBUM/"+data.album, "0", "", function (success, result) {
-      if (success)      {
-	  console.log("browse-album guigui YESSSS",result.title, result.uid, result.class);
-	  if (result.items) {
-	      console.log("browse-album items found"+result.items.count);	      
-	      for (var i in result.items) {
-		  console.log("browse-album GUIGUI, item :",i,",",result.items[i],",",result.items[i].title);	      
-	      }
-	  }
-	  else {
-		  console.log("browse-album no item");	      
-	  }
-
-      }
-	else 
-	    console.log ("browse-album hoho something went wrong");
-    console.log("browse-album /guigui")
-    if (result.items) {
-	socket.emit('albumTracks', result.items);
-    }
+	player.browse("A:ALBUM/"+data.album, "0", "", function (success, result) {
+	    if (result.items) {
+		socket.emit('albumTracks', result.items);
+	    }
+	});
     });
-  });
 
   socket.on('play-track', function (data) {
     console.log(data)
@@ -258,7 +217,27 @@ socketServer.sockets.on('connection', function (socket) {
     });
   });
 
-// </guigui>
+  socket.on('queue-track', function (data) {
+    console.log(data)
+    var player = discovery.getPlayerByUUID(data.uuid);
+    if (!player) return;
+
+    player.addURIToQueue(data.uri, "", function (success) {
+      if (success) console.log(data.title," added to queue");
+    });
+  });
+
+/*
+  socket.on('display-track-menu', function (data) {
+    console.log(data)
+    var player = discovery.getPlayerByUUID(data.uuid);
+    if (!player) return;
+
+    player.replaceWithTrack(data.title, data.uri, function (success) {
+      if (success) player.play();
+    });
+  });
+*/
 
   socket.on('play-favorite', function (data) {
     console.log(data)
@@ -352,22 +331,6 @@ discovery.on('mute', function (data) {
 discovery.on('favorites', function (data) {
   socketServer.sockets.emit('favorites', data);
 });
-
-//guigui
-/*
-discovery.on('artists', function (data) {
-  socketServer.sockets.emit('artists', data);
-});
-
-discovery.on('albums', function (data) {
-  socketServer.sockets.emit('albums', data);
-});
-
-discovery.on('albumTracks', function (data) {
-  socketServer.sockets.emit('albumTracks', data);
-});
-*/
-// </guigui>
 
 discovery.on('queue-changed', function (data) {
   console.log('queue-changed', data);

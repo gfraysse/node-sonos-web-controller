@@ -3,14 +3,30 @@
 	<head>
 		<link rel="stylesheet" type="text/css" href="css/common.css" />
 		<link rel="stylesheet" type="text/css" href="css/main.css" />
+		<link rel="stylesheet" type="text/css" href="bootstrap/css/bootstrap.min.css">    
 		<script src="/socket.io/socket.io.js"></script>
 		<script>
 		  var socket = io.connect('/');
 		</script>
 		<title id="page-title">Sonos Web Controller</title>
 		<link id="favicon" rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+
 	</head>
+
 <body>
+
+<div id="contextMenu" class="dropdown clearfix" style="z-index:1000;position:absolute;display:hidden">
+    <ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu" style="display:block;position:static;margin-bottom:5px;z-index:1000">
+        <li><a tabindex="-1" href="#">Play Now</a></li>
+        <li><a tabindex="-1" href="#">Play Next</a></li>
+        <li><a tabindex="-1" href="#">Add to Queue</a></li>
+        <li><a tabindex="-1" href="#">Replace Queue</a></li>
+        <li><a tabindex="-1" href="#">Add to...</a></li>
+        <li class="divider"></li>
+        <li><a tabindex="-1" href="#">Info & Options</a></li>
+    </ul>
+</div>
+
 	<header id="top-control">
 
 		<img  id="master-mute" class="mute-button" src="svg/mute_off.svg" />
@@ -83,5 +99,60 @@
 	</div>
 
 	<script src="js/all.js"></script>
+	<script src="js/jquery-2.1.0.min.js"></script>
+	<script type='text/javascript' src="bootstrap/js/bootstrap.min.js"></script>
+
+<script>
+$(function () {
+
+    var $contextMenu = $("#contextMenu");
+    var $rowClicked;
+
+    $("body").on("contextmenu", "table tr", function (e) {
+        $rowClicked = $(this)
+        $contextMenu.css({
+            display: "block",
+            left: e.pageX,
+            top: e.pageY
+        });
+        return false;
+    });
+
+    $contextMenu.on("click", "a", function () {
+        $node = $rowClicked.children("*")[0]
+        switch ($(this).text()) {
+        //console.log("node=",$node)
+        case $(tracksMenuItems)[0] :
+	  socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, uri: $node.dataset.uri });
+          break;
+        case $(tracksMenuItems)[1] :
+	  socket.emit('queue-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, uri: $node.dataset.uri });
+          break;
+        case $(tracksMenuItems)[2] :
+	  socket.emit('queue-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, uri: $node.dataset.uri });
+          break;
+        case $(tracksMenuItems)[3] :
+//	  socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, uri: $node.dataset.uri });
+console.log($(this).text());
+          break;
+        case $(tracksMenuItems)[4] :
+//	  socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, uri: $node.dataset.uri });
+console.log($(this).text());
+          break;
+        case $(tracksMenuItems)[5] :
+//	  socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, uri: $node.dataset.uri });
+console.log($(this).text());
+          break;
+        }
+        $contextMenu.hide();
+    });
+
+    $(document).click(function () {
+        $contextMenu.hide();
+    });
+});
+$("#contextMenu").hide();
+</script>
+
 </body>
 </html>

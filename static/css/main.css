@@ -444,6 +444,14 @@ guigui
 	font-size: 14px;
 }
 
+#library-container table {
+    border : none;
+    border-collapse: collapse;
+}
+#library-container td {
+    padding: 0;
+    border-top:none;
+}
 #favorites-container,
 #library-container,
 #queue-container {
@@ -453,6 +461,10 @@ guigui
 	height: calc(100% - 40px);
 	overflow: auto;
 	border-top: 1px solid #012947;
+//	color: #0A97FF;
+//	color: rgb(4,90,218);
+//	color: #0A97FF;
+	color: #FFF;
 }
 
 #favorites-container li,
@@ -523,4 +535,22 @@ guigui
 #library-container {
 #queue-container {
 	height: calc(100% - 316px);
+}
+/*
+#dropdown ul{
+    display: none;
+}
+
+#dropdown li:hover {
+    display: block;
+    position: absolute;
+}
+
+#dropdown li {
+    float: none;
+}
+*/
+#contextMenu {
+    position: relative;
+    display:none;
 }
