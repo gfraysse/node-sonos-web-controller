@@ -16,6 +16,14 @@ var Sonos = {
 	}
 };
 
+var currentLibrary = 'rootLibrary';
+var currentArtist = '';
+var currentAlbumTitle = '';
+
+var rootLibraryMenuItems = [ 'Sonos Favorites', 'Music Library', 'Radio' ];
+var musicLibraryMenuItems = [ 'Artists', 'Albums', 'Composers', 'Genre', 'Tracks', 'Imported Playlists', 'Folders' ];
+var tracksMenuItems = [ 'Play Now', 'Play Next', 'Add to Queue', 'Replace Queue', 'Add to...', 'Info & Options' ];
+
 ///
 /// GUI Init
 ///
@@ -138,6 +146,26 @@ socket.on('favorites', function (data) {
 	renderFavorites(data);
 });
 
+socket.on('root-menu', function (data) {
+	renderRootLibraryMenu(data);
+});
+
+socket.on('artists', function (data) {
+	renderArtists(data);
+});
+
+socket.on('radios', function (data) {
+	renderRadios(data);
+});
+
+socket.on('albums', function (data) {
+	renderAlbums(data);
+});
+
+socket.on('albumTracks', function (data) {
+	renderAlbumTracks(data);
+});
+
 socket.on('queue', function (data) {
 	console.log("received queue", data.uuid);
 	if (data.uuid != Sonos.currentState.selectedZone) return;
@@ -219,15 +247,105 @@ document.getElementById('prev').addEventListener('click', function () {
 	socket.emit('transport-state', { uuid: Sonos.currentState.selectedZone, state: action });
 });
 
-document.getElementById('music-sources-container').addEventListener('dblclick', function (e) {
-	function findFavoriteNode(currentNode) {
+document.getElementById('library-browser-back-button').addEventListener('click', function (e) {
+    // Order of pages to display is rootLibrary -> artistLibrary -> artistAlbumsLibrary -> albumLibrary or rootLibrary -> favoritesLibrary
+    //console.log("library-browser-back-button clicked, currentLibrary=", currentLibrary);
+    if (currentLibrary == 'rootLibrary') {
+	socket.emit('library-root-menu');
+	currentLibrary = 'rootLibrary';
+	//console.log("library-browser-back-button END, currentLibrary=", currentLibrary);
+	return;
+    }
+    if (currentLibrary == 'artistLibrary' || currentLibrary == 'favoritesLibrary') {
+	socket.emit('library-root-menu');
+	currentLibrary = 'rootLibrary';
+	//console.log("library-browser-back-button END, currentLibrary=", currentLibrary);
+	return;
+    }
+    if (currentLibrary == 'albumLibrary') {
+	socket.emit('browse-artist', {uuid: Sonos.currentState.selectedZone, artist: currentArtist});
+	currentLibrary = 'artistAlbumsLibrary';
+	//console.log("library-browser-back-button END, currentLibrary=", currentLibrary);
+	return;
+    }
+    if (currentLibrary == 'artistAlbumsLibrary') {
+	currentLibrary= 'artistLibrary';
+	socket.emit('list-artists', {uuid: Sonos.currentState.selectedZone});
+	//console.log("library-browser-back-button END, currentLibrary=", currentLibrary);
+	return;
+    }
+    //console.log("library-browser-back-button END ????, currentLibrary=", currentLibrary);
+});
+
+/*
+document.getElementById('music-sources-container').addEventListener('click', function (e) {
+    function findNode(currentNode) {
 		// If we are at top level, abort.
 		if (currentNode == this) return;
 		if (currentNode.tagName == "LI") return currentNode;
-		return findFavoriteNode(currentNode.parentNode);
+		return findNode(currentNode.parentNode);
+    }
+    var li = findNode(e.target);
+
+	if (currentLibrary == 'albumLibrary') {
+		console.log("displaying contextual menu");
+		socket.emit('display-track-menu', {uuid: Sonos.currentState.selectedZone, title: li.dataset.title, uri: li.dataset.uri });
+		currentLibrary= 'albumLibrary';
+		return;
+    }
+
+});
+*/
+document.getElementById('music-sources-container').addEventListener('dblclick', function (e) {
+    function findNode(currentNode) {
+	// If we are at top level, abort.
+	if (currentNode == this) return;
+	if (currentNode.tagName == "LI") return currentNode;
+	return findNode(currentNode.parentNode);
+    }
+    var li = findNode(e.target);
+
+    if (currentLibrary == 'rootLibrary') {
+	console.log("rootLibrary", li.textContent);
+	switch (li.textContent) {
+	    case rootLibraryMenuItems [0]:
+	    currentLibrary= 'favoritesLibrary';	    
+	    socket.emit('list-favorites', {uuid: Sonos.currentState.selectedZone});
+	    break;
+	    case rootLibraryMenuItems [1]:
+	    currentLibrary= 'artistLibrary';
+	    socket.emit('list-artists', {uuid: Sonos.currentState.selectedZone});
+	    break;
+	    case rootLibraryMenuItems [2]:
+	    currentLibrary= 'RadioLibrary';
+	    socket.emit('list-radios', {uuid: Sonos.currentState.selectedZone});
+	    break;
+	    default:
 	}
-	var li = findFavoriteNode(e.target);
+	return;
+    }
+    if (currentLibrary == 'favoritesLibrary') {
 	socket.emit('play-favorite', {uuid: Sonos.currentState.selectedZone, favorite: li.dataset.title});
+	currentLibrary= 'favoritesLibrary';
+	return;
+    }
+    if (currentLibrary == 'albumLibrary') {
+	socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: li.dataset.title, uri: li.dataset.uri });
+	currentLibrary= 'albumLibrary';
+	return;
+    }
+    if (currentLibrary == 'artistAlbumsLibrary') {
+	socket.emit('browse-album', {uuid: Sonos.currentState.selectedZone, album: li.dataset.title});
+		currentAlbumTitle = li.dataset.title;
+	currentLibrary= 'albumLibrary';
+	return;
+    }
+    if (currentLibrary == 'artistLibrary') {
+	socket.emit('browse-artist', {uuid: Sonos.currentState.selectedZone, artist: li.dataset.title});
+	currentArtist = li.dataset.title;
+	currentLibrary= 'artistAlbumsLibrary';
+	return;
+    }
 });
 
 document.getElementById('status-container').addEventListener('dblclick', function (e) {
@@ -288,7 +406,7 @@ document.getElementById('player-volumes-container').addEventListener('click', fu
 document.getElementById("current-track-art").addEventListener('load', function (e) {
 	// new image loaded. update favicon
 	// This prevents duplicate requests!
-	console.log('albumart loaded', this.src)
+	//console.log('albumart loaded', this.src)
 	var oldFavicon = document.getElementById("favicon");
 	var newFavicon = oldFavicon.cloneNode();
 	newFavicon.href = this.src;
@@ -820,27 +938,244 @@ function reRenderZones() {
 	oldWrapper.parentNode.replaceChild(newWrapper, oldWrapper);
 }
 
+function changeLibraryBrowserTitle (title) {
+	var container = document.getElementById('library-browser-title');
+	container.textContent = title;
+}
+
 function renderFavorites(favorites) {
-	var oldContainer = document.getElementById('favorites-container');
-	var newContainer = oldContainer.cloneNode(false);
+    cleanLibrayContainer();
 
-	var i = 0;
+	changeLibraryBrowserTitle ("Favorites");
 
-	favorites.forEach(function (favorite) {
+    //var oldContainer = document.getElementById('favorites-container');
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+
+    var i = 0;
+
+    favorites.forEach(function (favorite) {
+	var li = document.createElement('li');
+	li.dataset.title = favorite.title;
+	var span = document.createElement('span');
+	span.textContent = favorite.title;
+	var albumArt = document.createElement('img');
+	albumArt.src = favorite.albumArtURI;
+	li.appendChild(albumArt);
+	li.appendChild(span);
+	li.tabIndex = i++;
+	newContainer.appendChild(li);
+    });
+
+
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+}
+
+function renderArtists(artists) {
+    cleanLibrayContainer ();
+
+	changeLibraryBrowserTitle ("Artists");
+
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+
+    var i = 0;
+    var initial = "";
+    artists.forEach(function (artist) {
+	// add a separator for every new startup letter
+	if (artist.title[0] != initial) {
+	    initial = artist.title[0];
+	    var heading = document.createElement('h4');
+	    heading.appendChild(document.createTextNode(initial));
+	    newContainer.appendChild(heading);
+	}
+
+	var li = document.createElement('li');
+	li.dataset.title = artist.title;
+	var span = document.createElement('span');
+	span.textContent = artist.title;
+	//		var albumArt = document.createElement('img');
+	//		albumArt.src = artist.albumArtURI;
+	//		li.appendChild(albumArt);
+	li.appendChild(span);
+	li.tabIndex = i++;
+	newContainer.appendChild(li);
+    });
+
+
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+}
+
+function renderAlbums(albums) {
+    cleanLibrayContainer();
+
+	changeLibraryBrowserTitle (currentArtist);
+
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+
+    var i = 0;
+
+    albums.forEach(function (album) {
+	var li = document.createElement('li');
+	li.dataset.title = album.title;
+	var span = document.createElement('span');
+	span.textContent = album.title;
+	// Don't display album Art for the generic 'All' entry
+	if (album.title != "All") {
+	    var albumArt = document.createElement('img');
+	    albumArt.src = album.albumArtURI;
+	    li.appendChild(albumArt);
+	}
+	li.appendChild(span);
+	li.tabIndex = i++;
+	newContainer.appendChild(li);
+    });
+
+
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+}
+
+function renderRadios(radios) {
+    cleanLibrayContainer ();
+
+	changeLibraryBrowserTitle ("Radios");
+
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+
+    radios.forEach(function (radio) {
+	var li = document.createElement('li');
+	li.dataset.title = radio.title;
+	var span = document.createElement('span');
+	span.textContent = radio.title;
+	var albumArt = document.createElement('img');
+	albumArt.src = radio.albumArtURI;
+	li.appendChild(albumArt);
+	li.appendChild(span);
+	newContainer.appendChild(li);
+    });
+
+
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+}
+
+function cleanLibrayContainer () {
+    var container = document.getElementById('library-container');
+    var parChildren = container.children, tmpChildren = [], i, e;
+    var tmpArr = [];
+    for (i = 0, e = parChildren.length; i < e; i++) {
+        tmpArr.push(parChildren[i]);
+    }
+
+    for (i = 0; i < e; i++) {
+        container.removeChild(tmpArr[i]);
+    }
+    container.innerHtml ="";
+}
+
+function ulDropDownMenu () {
+	var ul = document.createElement('ul');
+/*	ul.id = "dropdown";
+	
+    tracksMenuItems.forEach(function (item) {
 		var li = document.createElement('li');
-		li.dataset.title = favorite.title;
-		var span = document.createElement('span');
-		span.textContent = favorite.title;
-		var albumArt = document.createElement('img');
-		albumArt.src = favorite.albumArtURI;
-		li.appendChild(albumArt);
-		li.appendChild(span);
-		li.tabIndex = i++;
-		newContainer.appendChild(li);
+		li.textContent = item;
+		ul.appendChild (li);
 	});
+*/
+	return ul;
+}
 
+function renderAlbumTracks(tracks) {
+    cleanLibrayContainer();
 
-	oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+	changeLibraryBrowserTitle (currentAlbumTitle);
+
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+
+    var i = 0;
+
+    var table = document.createElement('table');
+    table.className ="table table-hover";
+    table.id="mt";
+    var thead = document.createElement('thead');
+    var tbody = document.createElement('tbody');
+    var tr1 = document.createElement('tr');
+    var th1 = document.createElement('th');
+
+	var li_root = document.createElement('li');
+	li_root.id = "albumTrack";
+	li_root.dataset.title = 'CompleteAlbum';
+	li_root.dataset.uri = '';
+	var title_root = document.createElement('p');
+	title_root.className = 'title';
+	title_root.textContent = "Complete Album (" + (tracks.length -1) + " tracks)";
+
+    th1.appendChild (li_root);
+    tr1.appendChild (th1);
+
+    tracks.forEach(function (track) {
+	var li = document.createElement('li');
+	li.id = "albumTrack";
+	li.dataset.title = track.title;
+	li.dataset.uri = track.uri;
+
+	//var trackInfo = document.createElement('div');
+	var trackInfo = document.createElement('td');
+	trackInfo.id = "albumTrack"; 
+	trackInfo.dataset.title = track.title;
+	trackInfo.dataset.uri = track.uri;
+	var title = document.createElement('p');
+	title.className = 'title';
+	if (i < 9) {
+	    title.textContent = '0';
+	}
+	title.textContent += (i+1)+' '+track.title;
+	trackInfo.appendChild(title);
+	var artist = document.createElement('p');
+	artist.className = 'artist';
+	artist.textContent = track.artist;
+//	trackInfo.appendChild(artist);
+
+	if (i == 0) {
+		var albumArt = document.createElement('img');
+		albumArt.src = track.albumArtURI;
+		li_root.appendChild(albumArt);
+		newContainer.appendChild(li_root);
+		li_root.appendChild(title_root);
+	}
+
+	li.tabIndex = i++;
+
+	var tr = document.createElement('tr');
+	tr.appendChild (trackInfo);
+	tbody.appendChild (tr);
+
+    });
+    table.appendChild (tbody);
+    newContainer.appendChild(table);
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+}
+
+function renderRootLibraryMenu(data) {
+    cleanLibrayContainer();
+
+	changeLibraryBrowserTitle ('Select a Music Source');
+
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+
+    rootLibraryMenuItems.forEach(function (item) {
+	var li = document.createElement('li');
+	var span = document.createElement('span');
+	span.textContent = item;
+	li.appendChild(span);
+	newContainer.appendChild(li);
+    });
+
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
 }
 
 function renderQueue(queue) {
@@ -923,4 +1258,3 @@ function lazyLoadImages(container) {
 	}
 
 }
-

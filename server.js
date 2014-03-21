@@ -111,9 +111,8 @@ socketServer.sockets.on('connection', function (socket) {
   if (players.length == 0) return;
 
   socket.emit('topology-change', players);
-  player.getFavorites(function (success, favorites) {
-    socket.emit('favorites', favorites);
-  });
+    
+  socket.emit('root-menu');
 
   socket.on('transport-state', function (data) {
     // find player based on uuid
@@ -149,6 +148,96 @@ socketServer.sockets.on('connection', function (socket) {
 
       player.setAVTransportURI('x-rincon:' + data.group);
   });
+
+    socket.on('list-favorites', function (data) {
+	console.log(data)
+	var player = discovery.getPlayerByUUID(data.uuid);
+	if (!player) return;
+
+	player.getFavorites(function (success, favorites) {
+	    socket.emit('favorites', favorites);
+	});
+    });
+
+    socket.on('list-artists', function (data) {
+	console.log(data)
+	var player = discovery.getPlayerByUUID(data.uuid);
+	if (!player) return;
+
+	player.getArtists(function (success, artists) {
+	    socket.emit('artists', artists);
+	});
+    });
+
+    socket.on('list-radios', function (data) {
+	console.log(data)
+	var player = discovery.getPlayerByUUID(data.uuid);
+	if (!player) return;
+
+	player.getRadios(function (success, radios) {
+	    socket.emit('radios', radios);
+	});
+    });
+
+    socket.on('library-root-menu', function (data) {
+	socket.emit('root-menu');
+    });
+
+    socket.on('browse-artist', function (data) {
+	console.log(data)
+	var player = discovery.getPlayerByUUID(data.uuid);
+	if (!player) return;
+
+	player.browse("A:ARTIST/"+data.artist, "0", "", function (success, result) {
+	    if (result.items) {
+		socket.emit('albums', result.items);
+	    }
+	});
+    });
+
+    socket.on('browse-album', function (data) {
+	console.log(data)
+	var player = discovery.getPlayerByUUID(data.uuid);
+	if (!player) return;
+
+	player.browse("A:ALBUM/"+data.album, "0", "", function (success, result) {
+	    if (result.items) {
+		socket.emit('albumTracks', result.items);
+	    }
+	});
+    });
+
+  socket.on('play-track', function (data) {
+    console.log(data)
+    var player = discovery.getPlayerByUUID(data.uuid);
+    if (!player) return;
+
+    player.replaceWithTrack(data.title, data.uri, function (success) {
+      if (success) player.play();
+    });
+  });
+
+  socket.on('queue-track', function (data) {
+    console.log(data)
+    var player = discovery.getPlayerByUUID(data.uuid);
+    if (!player) return;
+
+    player.addURIToQueue(data.uri, "", function (success) {
+      if (success) console.log(data.title," added to queue");
+    });
+  });
+
+/*
+  socket.on('display-track-menu', function (data) {
+    console.log(data)
+    var player = discovery.getPlayerByUUID(data.uuid);
+    if (!player) return;
+
+    player.replaceWithTrack(data.title, data.uri, function (success) {
+      if (success) player.play();
+    });
+  });
+*/
 
   socket.on('play-favorite', function (data) {
     console.log(data)
