@@ -86,14 +86,14 @@
 		</div>
 		<div id="music-sources-container">
 			<h4>
-			  <div id="library-browser-back-button">
-			    <img src="images/left_arrow.jpg" width="32" height="32">
+			  <div style="float:left" id="library-browser-back-button">
+			    <img src="images/browse_scope_back_arrow.png" width="24" height="24">
 			  </div> 
-			  <div id="library-browser-title">
+			  <div style="float:left; text-align:center" id="library-browser-title">
 			    Select a Music Source
 			  </div>
 			</h4>
-			<ul id="library-container"></ul>
+			<ul style="clear:left" id="library-container"></ul>
 
 		</div>
 	</div>
@@ -121,9 +121,9 @@ $(function () {
     $contextMenu.on("click", "a", function () {
         $node = $rowClicked.children("*")[0]
         switch ($(this).text()) {
-        //console.log("node=",$node)
+//console.log("node=",$node);
         case $(tracksMenuItems)[0] :
-	  socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, uri: $node.dataset.uri });
+	  socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, alltitle: $node.dataset.alltitle,uri: $node.dataset.uri });
           break;
         case $(tracksMenuItems)[1] :
 	  socket.emit('queue-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, uri: $node.dataset.uri });

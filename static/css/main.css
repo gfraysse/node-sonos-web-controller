@@ -497,6 +497,7 @@ guigui
 
 #favorites-container li img,
 #library-container li img,
+#library-container th img,
 #queue-container li img {
 	width: 40px;
 	height: 40px;

@@ -19,8 +19,10 @@ var Sonos = {
 var currentLibrary = 'rootLibrary';
 var currentArtist = '';
 var currentAlbumTitle = '';
+var currentRelativeDirectory ='';
 
-var rootLibraryMenuItems = [ 'Sonos Favorites', 'Music Library', 'Radio' ];
+var rootLibraryMenuItems = [ 'Sonos Favorites', 'Music Library', 'Live MP3', 'Radio' ];
+var rootLibraryMenuIcons = [ 'images/browse_playlist.png', 'images/browse_generic_track.png', 'images/browse_generic_track.png', 'images/browse_generic_missing.png' ];
 var musicLibraryMenuItems = [ 'Artists', 'Albums', 'Composers', 'Genre', 'Tracks', 'Imported Playlists', 'Folders' ];
 var tracksMenuItems = [ 'Play Now', 'Play Next', 'Add to Queue', 'Replace Queue', 'Add to...', 'Info & Options' ];
 
@@ -154,6 +156,14 @@ socket.on('artists', function (data) {
 	renderArtists(data);
 });
 
+socket.on('browse-live-mp3', function (data) {
+	renderLiveMP3Root(data);
+});
+
+socket.on('live-mp3-directory', function (dir, mp3Files, otherFiles) {
+	renderLiveMP3Directory(dir, mp3Files, otherFiles);
+});
+
 socket.on('radios', function (data) {
 	renderRadios(data);
 });
@@ -248,6 +258,14 @@ document.getElementById('prev').addEventListener('click', function () {
 });
 
 document.getElementById('library-browser-back-button').addEventListener('click', function (e) {
+    function findNode(currentNode) {
+	// If we are at top level, abort.
+	if (currentNode == this) return;
+	if (currentNode.tagName == "LI") return currentNode;
+	return findNode(currentNode.parentNode);
+    }
+    var li = findNode(document.getElementById('library-container'));
+    console.log("li=", li);
     // Order of pages to display is rootLibrary -> artistLibrary -> artistAlbumsLibrary -> albumLibrary or rootLibrary -> favoritesLibrary
     //console.log("library-browser-back-button clicked, currentLibrary=", currentLibrary);
     if (currentLibrary == 'rootLibrary') {
@@ -274,6 +292,21 @@ document.getElementById('library-browser-back-button').addEventListener('click',
 	//console.log("library-browser-back-button END, currentLibrary=", currentLibrary);
 	return;
     }
+// if (currentLibrary == 'artistLiveMP3File') {
+ if (currentLibrary == 'liveMP3Library') {
+     if (currentRelativeDirectory.trim() == '') {
+	 socket.emit('library-root-menu');
+	 currentLibrary = 'rootLibrary';
+     }
+     else {
+	 var n = currentRelativeDirectory.lastIndexOf('/');
+	currentRelativeDirectory = currentRelativeDirectory.substr (0, n);
+	socket.emit('browse-live-mp3-file', {uuid: Sonos.currentState.selectedZone, artist: currentRelativeDirectory});
+	return;
+     }
+	return;
+    }
+
     //console.log("library-browser-back-button END ????, currentLibrary=", currentLibrary);
 });
 
@@ -304,9 +337,10 @@ document.getElementById('music-sources-container').addEventListener('dblclick', 
 	return findNode(currentNode.parentNode);
     }
     var li = findNode(e.target);
-    //guigui
+
     if (currentLibrary == 'rootLibrary') {
 	console.log("rootLibrary", li.textContent);
+	currentRelativeDirectory ='';
 	switch (li.textContent) {
 	    case rootLibraryMenuItems [0]:
 	    currentLibrary= 'favoritesLibrary';	    
@@ -317,6 +351,10 @@ document.getElementById('music-sources-container').addEventListener('dblclick', 
 	    socket.emit('list-artists', {uuid: Sonos.currentState.selectedZone});
 	    break;
 	    case rootLibraryMenuItems [2]:
+	    currentLibrary= 'liveMP3Library';
+	    socket.emit('list-live-mp3', {uuid: Sonos.currentState.selectedZone});
+	    break;
+	    case rootLibraryMenuItems [3]:
 	    currentLibrary= 'RadioLibrary';
 	    socket.emit('list-radios', {uuid: Sonos.currentState.selectedZone});
 	    break;
@@ -330,13 +368,15 @@ document.getElementById('music-sources-container').addEventListener('dblclick', 
 	return;
     }
     if (currentLibrary == 'albumLibrary') {
+	//console.log("alltitle", li.dataset.alltitle );
+	//socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: li.dataset.title, alltitle: li.dataset.alltitle, uri: li.dataset.uri });
 	socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: li.dataset.title, uri: li.dataset.uri });
 	currentLibrary= 'albumLibrary';
 	return;
     }
     if (currentLibrary == 'artistAlbumsLibrary') {
 	socket.emit('browse-album', {uuid: Sonos.currentState.selectedZone, album: li.dataset.title});
-		currentAlbumTitle = li.dataset.title;
+	currentAlbumTitle = li.dataset.title;
 	currentLibrary= 'albumLibrary';
 	return;
     }
@@ -344,6 +384,13 @@ document.getElementById('music-sources-container').addEventListener('dblclick', 
 	socket.emit('browse-artist', {uuid: Sonos.currentState.selectedZone, artist: li.dataset.title});
 	currentArtist = li.dataset.title;
 	currentLibrary= 'artistAlbumsLibrary';
+	return;
+    }
+    if (currentLibrary == 'liveMP3Library') {
+	//console.log("liveMP3Library", li.textContent, li.dataset.title );
+	currentRelativeDirectory = currentRelativeDirectory + '/' + li.dataset.title;
+	socket.emit('browse-live-mp3-file', {uuid: Sonos.currentState.selectedZone, artist: currentRelativeDirectory});
+	currentLibrary= 'liveMP3Library';
 	return;
     }
 });
@@ -1006,6 +1053,137 @@ function renderArtists(artists) {
     oldContainer.parentNode.replaceChild(newContainer, oldContainer);
 }
 
+function renderLiveMP3Root(files) {
+    cleanLibrayContainer ();
+
+    console.log ("renderLiveMP3Root");
+    changeLibraryBrowserTitle ("Live MP3");
+
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+
+    var i = 0;
+    var initial = "";
+    files.forEach(function (file) {
+	// add a separator for every new startup letter
+	if (file[0] != initial) {
+	    initial = file[0];
+	    var heading = document.createElement('h4');
+	    heading.appendChild(document.createTextNode(initial));
+	    newContainer.appendChild(heading);
+	}
+
+	var li = document.createElement('li');
+	li.dataset.title = file;
+	var span = document.createElement('span');
+	span.textContent = file;
+	//		var albumArt = document.createElement('img');
+	//		albumArt.src = artist.albumArtURI;
+	//		li.appendChild(albumArt);
+	li.appendChild(span);
+	li.tabIndex = i++;
+	newContainer.appendChild(li);
+    });
+
+
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+}
+
+function renderLiveMP3Directory(dir, mp3Files, otherFiles) {
+    cleanLibrayContainer ();
+
+    changeLibraryBrowserTitle ("Live MP3");
+
+    var oldContainer = document.getElementById('library-container');
+    var newContainer = oldContainer.cloneNode(false);
+    var i = 0;
+
+    var table = document.createElement('table');
+    table.className ="table table-hover";
+    table.id="mt";
+    var thead = document.createElement('thead');
+    var tbody = document.createElement('tbody');
+    var tr1 = document.createElement('tr');
+
+    var li_root = document.createElement('th');
+    li_root.id = "albumTrack";
+    li_root.dataset.title = 'CompleteAlbum';
+    li_root.dataset.uri = '';
+    var title_root = document.createElement('p');
+    title_root.className = 'title';
+    title_root.textContent = "Complete Album (" + (mp3Files.length -1) + " tracks)";
+
+    tr1.appendChild (li_root);
+    tbody.appendChild (tr1); 
+
+    mp3Files.forEach(function (track) {
+	var li = document.createElement('li');
+	li.id = "albumTrack";
+	li.dataset.title = track;
+	console.log ("dir=",dir);
+	var uri = 'http://192.168.1.30/mp3_content/' + dir;
+	uri = uri + '/' + track;
+	uri = uri.replace(/ /g,"%20");
+	console.log ("uri=",uri);
+
+	li.dataset.uri = uri;
+
+	var trackInfo = document.createElement('td');
+	trackInfo.id = "albumTrack"; 
+	trackInfo.dataset.title = track;
+	trackInfo.dataset.uri = uri;
+	var title = document.createElement('p');
+	title.className = 'title';
+	if (i < 9) {
+	    title.textContent = '0';
+	}
+	title.textContent += (i+1)+' '+track;
+	trackInfo.appendChild(title);
+	var artist = document.createElement('p');
+	artist.className = 'artist';
+	artist.textContent = track;
+
+	if (i == 0) {
+/*
+		var albumArt = document.createElement('img');
+		albumArt.src = track.albumArtURI;
+		li_root.appendChild(albumArt);
+*/
+//		newContainer.appendChild(li_root);
+//		li_root.appendChild(title_root);
+
+		li_root.appendChild(title_root);
+	    tr1.appendChild (li_root);
+	    tbody.appendChild (tr1); 
+	}
+
+	li.tabIndex = i++;
+
+	var tr = document.createElement('tr');
+	tr.appendChild (trackInfo);
+	tbody.appendChild (tr);
+
+    });
+
+
+    table.appendChild (tbody);
+    newContainer.appendChild(table);
+
+    otherFiles.forEach(function (file) {
+	var li = document.createElement('li');
+	li.dataset.title = file;
+	var span = document.createElement('span');
+	span.textContent = file;
+	li.appendChild(span);
+	li.tabIndex = i++;
+	newContainer.appendChild(li);
+    });
+
+
+    oldContainer.parentNode.replaceChild(newContainer, oldContainer);
+
+}
+
 function renderAlbums(albums) {
     cleanLibrayContainer();
 
@@ -1103,36 +1281,85 @@ function renderAlbumTracks(tracks) {
     var thead = document.createElement('thead');
     var tbody = document.createElement('tbody');
     var tr1 = document.createElement('tr');
-    var th1 = document.createElement('th');
 
-	var li_root = document.createElement('li');
-	li_root.id = "albumTrack"; //guigui
+	var li_root = document.createElement('th');
+	li_root.id = "albumTrack";
 	li_root.dataset.title = 'CompleteAlbum';
-	li_root.dataset.uri = '';
+
+    li_root.dataset.uri = '';
+    //li_root.dataset.uri = '*';//GF
+
 	var title_root = document.createElement('p');
 	title_root.className = 'title';
 	title_root.textContent = "Complete Album (" + (tracks.length -1) + " tracks)";
 
-    th1.appendChild (li_root);
-    tr1.appendChild (th1);
-
     tracks.forEach(function (track) {
 	var li = document.createElement('li');
-	li.id = "albumTrack"; //guigui
+	li.id = "albumTrack";
 	li.dataset.title = track.title;
 	li.dataset.uri = track.uri;
 
 	//var trackInfo = document.createElement('div');
 	var trackInfo = document.createElement('td');
-	trackInfo.id = "albumTrack"; //guigui
+	trackInfo.id = "albumTrack"; 
 	trackInfo.dataset.title = track.title;
 	trackInfo.dataset.uri = track.uri;
+
+	if (i > 0) {
+	    li_root.dataset.alltitle = li_root.dataset.alltitle+','+track.title;//GF
+	    li_root.dataset.uri = li_root.dataset.uri+','+track.uri;//GF
+	}
+	else {
+	    li_root.dataset.alltitle = track.title;
+	    li_root.dataset.uri = track.uri;
+	}
+
 	var title = document.createElement('p');
 	title.className = 'title';
 	if (i < 9) {
 	    title.textContent = '0';
 	}
 	title.textContent += (i+1)+' '+track.title;
+	trackInfo.appendChild(title);
+	var artist = document.createElement('p');
+	artist.className = 'artist';
+	artist.textContent = track.artist;
+//	trackInfo.appendChild(artist);
+
+	if (i == 0) {
+		var albumArt = document.createElement('img');
+		albumArt.src = track.albumArtURI;
+		li_root.appendChild(albumArt);
+		li_root.appendChild(title_root);
+	    tr1.appendChild (li_root);
+	    tbody.appendChild (tr1); 
+	}
+
+	li.tabIndex = i++;
+
+	var tr = document.createElement('tr');
+	tr.appendChild (trackInfo);
+	tbody.appendChild (tr);
+
+    });
+
+/*
+	var li = document.createElement('li');
+	li.id = "albumTrack";
+	li.dataset.title = "test";
+	li.dataset.uri = "http://192.168.1.30/mp3_content/L7/L7,%20Bordeaux,%20Rockschool%20Barbey,%2001.07.1997/15%20Piste%2015.mp3";
+
+	//var trackInfo = document.createElement('div');
+	var trackInfo = document.createElement('td');
+	trackInfo.id = "albumTrack"; 
+	trackInfo.dataset.title = "test";
+	trackInfo.dataset.uri = "http://192.168.1.30/mp3_content/L7/L7,%20Bordeaux,%20Rockschool%20Barbey,%2001.07.1997/15%20Piste%2015.mp3";
+	var title = document.createElement('p');
+	title.className = 'title';
+	if (i < 9) {
+	    title.textContent = '0';
+	}
+	title.textContent += (i+1)+' test';
 	trackInfo.appendChild(title);
 	var artist = document.createElement('p');
 	artist.className = 'artist';
@@ -1152,8 +1379,10 @@ function renderAlbumTracks(tracks) {
 	var tr = document.createElement('tr');
 	tr.appendChild (trackInfo);
 	tbody.appendChild (tr);
+*/
 
-    });
+
+
     table.appendChild (tbody);
     newContainer.appendChild(table);
     oldContainer.parentNode.replaceChild(newContainer, oldContainer);
@@ -1167,12 +1396,19 @@ function renderRootLibraryMenu(data) {
     var oldContainer = document.getElementById('library-container');
     var newContainer = oldContainer.cloneNode(false);
 
+    var i = 0;
     rootLibraryMenuItems.forEach(function (item) {
 	var li = document.createElement('li');
+
+	var icon = document.createElement('img');
+	icon.src = rootLibraryMenuIcons[i];
+
 	var span = document.createElement('span');
 	span.textContent = item;
+	li.appendChild(icon);
 	li.appendChild(span);
 	newContainer.appendChild(li);
+	i++;
     });
 
     oldContainer.parentNode.replaceChild(newContainer, oldContainer);
