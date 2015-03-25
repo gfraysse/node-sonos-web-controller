@@ -17,11 +17,12 @@
 
 <div id="contextMenu" class="dropdown clearfix" style="z-index:1000;position:absolute;display:hidden">
     <ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu" style="display:block;position:static;margin-bottom:5px;z-index:1000">
+<!-- needs to be in sync with list in server.js -->
         <li><a tabindex="-1" href="#">Play Now</a></li>
         <li><a tabindex="-1" href="#">Play Next</a></li>
         <li><a tabindex="-1" href="#">Add to Queue</a></li>
         <li><a tabindex="-1" href="#">Replace Queue</a></li>
-        <li><a tabindex="-1" href="#">Add to...</a></li>
+        <li><a tabindex="-1" href="#">Clear Queue</a></li>
         <li class="divider"></li>
         <li><a tabindex="-1" href="#">Info & Options</a></li>
     </ul>
@@ -54,6 +55,9 @@
 						</div>
 					</div>
 				<span id="countdown">-0:00</span>
+				<img id="clearqueue"
+				class="clear-queue"
+				src="images/tc_progress_repeat_normal_off.png"	/><!--GF -->
 			</div>
 
 		</div>
@@ -103,6 +107,7 @@
 	<script type='text/javascript' src="bootstrap/js/bootstrap.min.js"></script>
 
 <script>
+
 $(function () {
 
     var $contextMenu = $("#contextMenu");
@@ -120,8 +125,9 @@ $(function () {
 
     $contextMenu.on("click", "a", function () {
         $node = $rowClicked.children("*")[0]
+//       console.log("node=",$node)
+//console.log($(this).text());
         switch ($(this).text()) {
-//console.log("node=",$node);
         case $(tracksMenuItems)[0] :
 	  socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, alltitle: $node.dataset.alltitle,uri: $node.dataset.uri });
           break;
@@ -136,8 +142,9 @@ $(function () {
 console.log($(this).text());
           break;
         case $(tracksMenuItems)[4] :
-//	  socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, uri: $node.dataset.uri });
-console.log($(this).text());
+console.log("clearQueue menu");
+          socket.emit('clear-queue', {uuid: Sonos.currentState.selectedZone});
+//console.log($(this).text());
           break;
         case $(tracksMenuItems)[5] :
 //	  socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: $node.dataset.title, uri: $node.dataset.uri });
