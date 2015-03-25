@@ -452,9 +452,9 @@ guigui
     padding: 0;
     border-top:none;
 }
+
 #favorites-container,
-#library-container,
-#queue-container {
+#library-container {
 	margin: 0;
 	padding: 0;
 	cursor: pointer;
@@ -464,6 +464,16 @@ guigui
 //	color: #0A97FF;
 //	color: rgb(4,90,218);
 //	color: #0A97FF;
+	color: #FFF;
+}
+
+#queue-container {
+	margin: 0;
+	padding: 0;
+	cursor: pointer;
+	height: calc(100% - 300px);
+	overflow: auto;
+	border-top: 1px solid #012947;
 	color: #FFF;
 }
 
