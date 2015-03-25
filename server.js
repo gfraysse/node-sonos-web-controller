@@ -184,8 +184,6 @@ socketServer.sockets.on('connection', function (socket) {
 	console.log(data)
 	file = '/mnt/nfs/torrents/mp3_320k/' + data.artist;
 	fs.stat (file, function (err, stats) {
-	    console.log("err=",err);
-	    console.log("stats=",stats);
 	    if (!err) {
 		if (stats.isDirectory ()) {
 		    fs.readdir (file, function (err, files) {
@@ -199,7 +197,7 @@ socketServer.sockets.on('connection', function (socket) {
 				return;
 			    }
 			    else {
-				otherFiles.push (file);
+				//GF otherFiles.push (file);
 			    }
 			});
 			if (isMP3dir) {
@@ -221,6 +219,10 @@ socketServer.sockets.on('connection', function (socket) {
 			if (success) player.play();
 		    });
 		}
+	    }
+	    else {
+		console.log("err=",err);
+		console.log("stats=",stats);
 	    }
 	});
     });
@@ -296,15 +298,22 @@ socketServer.sockets.on('connection', function (socket) {
       }
   });
 
-  socket.on('queue-track', function (data) {
-    console.log(data)
-    var player = discovery.getPlayerByUUID(data.uuid);
-    if (!player) return;
+    socket.on('queue-track', function (data) {
+	console.log(data)
+	var player = discovery.getPlayerByUUID(data.uuid);
+	if (!player) return;
 
-    player.addURIToQueue(data.uri, "", function (success) {
-      if (success) console.log(data.title," added to queue");
+	uris = data.uri.split (',');
+	uris.forEach (function(uri) {
+	    console.log ("adding uri=",uri);
+      	    player.addURIToQueue(uri, "", function (success) {
+		console.log ("added uri=",uri);
+	    });
+	});
+	//GF	  player.addURIToQueue(data.uri, "", function (success) {
+	//if (success) console.log(data.uri," added to queue");
+	//    });
     });
-  });
 
 /*
   socket.on('display-track-menu', function (data) {
@@ -353,6 +362,12 @@ socketServer.sockets.on('connection', function (socket) {
     for (var action in data.state) {
       player[action](data.state[action]);
     }
+  });
+
+  socket.on('clear-queue', function (data) {
+      console.log("clearQueue");
+      var player = discovery.getPlayerByUUID(data.uuid);
+      player.clearQueue();
   });
 
   socket.on('volume', function (data) {
@@ -425,6 +440,7 @@ function loadQueue(uuid, socket) {
     var player = discovery.getPlayerByUUID(uuid);
     player.getQueue(startIndex, requestedCount, function (success, queue) {
       if (!success) return;
+	console.log('getqueue', uuid, queue); //GF
       socket.emit('queue', {uuid: uuid, queue: queue});
 
       if (!queues[uuid] || queue.startIndex == 0) {
