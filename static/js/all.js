@@ -24,7 +24,7 @@ var currentRelativeDirectory ='';
 var rootLibraryMenuItems = [ 'Sonos Favorites', 'Music Library', 'Live MP3', 'Radio' ];
 var rootLibraryMenuIcons = [ 'images/browse_playlist.png', 'images/browse_generic_track.png', 'images/browse_generic_track.png', 'images/browse_generic_missing.png' ];
 var musicLibraryMenuItems = [ 'Artists', 'Albums', 'Composers', 'Genre', 'Tracks', 'Imported Playlists', 'Folders' ];
-var tracksMenuItems = [ 'Play Now', 'Play Next', 'Add to Queue', 'Replace Queue', 'Add to...', 'Info & Options' ];
+var tracksMenuItems = [ 'Play Now', 'Play Next', 'Add to Queue', 'Replace Queue', 'Clear Queue', 'Info & Options' ];
 
 ///
 /// GUI Init
@@ -115,7 +115,7 @@ socket.on('transport-state', function (player) {
 	Sonos.players[player.uuid] = player;
 	reRenderZones();
 	var selectedZone = Sonos.currentZoneCoordinator();
-	console.log(selectedZone)
+//GF	console.log(selectedZone)
 	updateControllerState();
 	updateCurrentStatus();
 
@@ -177,7 +177,7 @@ socket.on('albumTracks', function (data) {
 });
 
 socket.on('queue', function (data) {
-	console.log("received queue", data.uuid);
+//GF	console.log("received queue", data.uuid);
 	if (data.uuid != Sonos.currentState.selectedZone) return;
 	renderQueue(data.queue);
 });
@@ -255,6 +255,11 @@ document.getElementById('prev').addEventListener('click', function () {
 	var action = "previousTrack";
 	console.log(action, Sonos.currentState)
 	socket.emit('transport-state', { uuid: Sonos.currentState.selectedZone, state: action });
+});
+
+document.getElementById('clearqueue').addEventListener('click', function () {
+    console.log("clear-queue")	
+socket.emit('clear-queue', { uuid: Sonos.currentState.selectedZone });
 });
 
 document.getElementById('library-browser-back-button').addEventListener('click', function (e) {
@@ -368,6 +373,7 @@ document.getElementById('music-sources-container').addEventListener('dblclick', 
 	return;
     }
     if (currentLibrary == 'albumLibrary') {
+	console.log("currentLibrary", currentLibrary);
 	//console.log("alltitle", li.dataset.alltitle );
 	//socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: li.dataset.title, alltitle: li.dataset.alltitle, uri: li.dataset.uri });
 	socket.emit('play-track', {uuid: Sonos.currentState.selectedZone, title: li.dataset.title, uri: li.dataset.uri });
@@ -375,19 +381,21 @@ document.getElementById('music-sources-container').addEventListener('dblclick', 
 	return;
     }
     if (currentLibrary == 'artistAlbumsLibrary') {
+	console.log("currentLibrary", currentLibrary);
 	socket.emit('browse-album', {uuid: Sonos.currentState.selectedZone, album: li.dataset.title});
 	currentAlbumTitle = li.dataset.title;
 	currentLibrary= 'albumLibrary';
 	return;
     }
     if (currentLibrary == 'artistLibrary') {
+	console.log("currentLibrary", currentLibrary);
 	socket.emit('browse-artist', {uuid: Sonos.currentState.selectedZone, artist: li.dataset.title});
 	currentArtist = li.dataset.title;
 	currentLibrary= 'artistAlbumsLibrary';
 	return;
     }
     if (currentLibrary == 'liveMP3Library') {
-	//console.log("liveMP3Library", li.textContent, li.dataset.title );
+	console.log("liveMP3Library", li.textContent, li.dataset.title );
 	currentRelativeDirectory = currentRelativeDirectory + '/' + li.dataset.title;
 	socket.emit('browse-live-mp3-file', {uuid: Sonos.currentState.selectedZone, artist: currentRelativeDirectory});
 	currentLibrary= 'liveMP3Library';
@@ -479,7 +487,7 @@ function updateCurrentStatus() {
 		document.getElementById("next-track").textContent = nextTrack.title + " - " + nextTrack.artist;
 	}
 
-	console.log(selectedZone)
+//GF	console.log(selectedZone)
 
 	var repeat = document.getElementById("repeat");
 	if (selectedZone.playMode.repeat) {
@@ -731,7 +739,7 @@ function ProgressBar(containerObj, callback) {
 
 		clearInterval(tickerInterval);
 
-		console.log(state)
+//GF		console.log(state)
 
 		if (state.zoneState == "PLAYING")
 			tickerInterval = setInterval(updatePosition, 500);
@@ -949,7 +957,7 @@ function renderVolumes() {
 			socket.emit('volume', {uuid: uuid, volume: vol});
 		});
 
-		console.log(uuid, Sonos.players[uuid].state.volume);
+//GF		console.log(uuid, Sonos.players[uuid].state.volume);
 
 		GUI.playerVolumes[uuid].setVolume(Sonos.players[uuid].state.volume);
 	});
@@ -958,31 +966,52 @@ function renderVolumes() {
 	newWrapper.classList.remove('loading');
 }
 
+function Comparator(a,b){
+    return a[0].localeCompare (b[0]);
+}
+
 function reRenderZones() {
-	var oldWrapper = document.getElementById('zone-wrapper');
-	var newWrapper = oldWrapper.cloneNode(false);
+    var oldWrapper = document.getElementById('zone-wrapper');
+    var newWrapper = oldWrapper.cloneNode(false);
 
-	for (var groupUUID in Sonos.grouping) {
-		var ul = document.createElement('ul');
-		ul.id = groupUUID;
+    var i = 0;
+/*GF
+    var orderedPlayers = new Array ();
+    for (var groupUUID in Sonos.grouping) {
+	orderedPlayers [i] = [Sonos.players[groupUUID].roomName, groupUUID];
+	i++;
+    }
 
-		if (ul.id == Sonos.currentState.selectedZone)
-			ul.className = "selected";
+    orderedPlayers.sort (Comparator);
+    console.log ("orderedPlayers", orderedPlayers);
+*/
+    for (var groupUUID in Sonos.grouping) {
+	var ul = document.createElement('ul');
+	ul.id = groupUUID;
 
-		Sonos.grouping[groupUUID].forEach(function (playerUUID) {
-			var player = Sonos.players[playerUUID];
-			var li = document.createElement('li');
-			var span = document.createElement('span');
-			span.textContent = player.roomName;
-			li.appendChild(span);
-			li.draggable = true;
-			li.dataset.id = playerUUID;
-			ul.appendChild(li);
-		});
+	if (ul.id == Sonos.currentState.selectedZone)
+	    ul.className = "selected";
 
-		newWrapper.appendChild(ul);
-	}
-	oldWrapper.parentNode.replaceChild(newWrapper, oldWrapper);
+	//Sonos.grouping[groupUUID].forEach(function (playerUUID) {
+	i = 0;
+	Sonos.grouping[groupUUID].forEach(function (playerUUID) {	    
+	    var player = Sonos.players[playerUUID];
+	    var li = document.createElement('li');
+	    var span = document.createElement('span');
+	    //GFspan.textContent = orderedPlayers[i][0];
+	    span.textContent = player.roomName;
+	    li.appendChild(span);
+	    li.draggable = true;
+	    //GFli.dataset.id = orderedPlayers[i][1];
+	    li.dataset.id = playerUUID;
+	    ul.appendChild(li);
+	    i++;
+	});
+
+	newWrapper.appendChild(ul);
+    }
+
+    oldWrapper.parentNode.replaceChild(newWrapper, oldWrapper);
 }
 
 function changeLibraryBrowserTitle (title) {
@@ -1120,11 +1149,16 @@ function renderLiveMP3Directory(dir, mp3Files, otherFiles) {
 	var li = document.createElement('li');
 	li.id = "albumTrack";
 	li.dataset.title = track;
-	console.log ("dir=",dir);
+	//console.log ("dir=",dir);
+	// GF hard coded IP
 	var uri = 'http://192.168.1.30/mp3_content/' + dir;
 	uri = uri + '/' + track;
 	uri = uri.replace(/ /g,"%20");
-	console.log ("uri=",uri);
+	//GF uri = encodeURIComponent(uri);
+	uri = uri.replace(/'/g,"%92");
+	uri = uri.replace(/,/g,"%2C");
+	uri = uri.replace(/-/g,"%2D");
+	//console.log ("uri=",uri);
 
 	li.dataset.uri = uri;
 
@@ -1132,6 +1166,16 @@ function renderLiveMP3Directory(dir, mp3Files, otherFiles) {
 	trackInfo.id = "albumTrack"; 
 	trackInfo.dataset.title = track;
 	trackInfo.dataset.uri = uri;
+//GF
+	if (i > 0) {
+	    li_root.dataset.alltitle = li_root.dataset.alltitle+','+track;
+	    li_root.dataset.uri = li_root.dataset.uri+','+uri;
+	}
+	else {
+	    li_root.dataset.alltitle = title;
+	    li_root.dataset.uri = uri;
+	}
+//GF -
 	var title = document.createElement('p');
 	title.className = 'title';
 	if (i < 9) {
@@ -1144,15 +1188,15 @@ function renderLiveMP3Directory(dir, mp3Files, otherFiles) {
 	artist.textContent = track;
 
 	if (i == 0) {
-/*
-		var albumArt = document.createElement('img');
-		albumArt.src = track.albumArtURI;
-		li_root.appendChild(albumArt);
-*/
-//		newContainer.appendChild(li_root);
-//		li_root.appendChild(title_root);
+	    /*
+	      var albumArt = document.createElement('img');
+	      albumArt.src = track.albumArtURI;
+	      li_root.appendChild(albumArt);
+	    */
+	    //		newContainer.appendChild(li_root);
+	    //		li_root.appendChild(title_root);
 
-		li_root.appendChild(title_root);
+	    li_root.appendChild(title_root);
 	    tr1.appendChild (li_root);
 	    tbody.appendChild (tr1); 
 	}
@@ -1165,18 +1209,17 @@ function renderLiveMP3Directory(dir, mp3Files, otherFiles) {
 
     });
 
-
     table.appendChild (tbody);
     newContainer.appendChild(table);
 
     otherFiles.forEach(function (file) {
-	var li = document.createElement('li');
-	li.dataset.title = file;
-	var span = document.createElement('span');
-	span.textContent = file;
-	li.appendChild(span);
-	li.tabIndex = i++;
-	newContainer.appendChild(li);
+				var li = document.createElement('li');
+				li.dataset.title = file;
+				var span = document.createElement('span');
+				span.textContent = file;
+				li.appendChild(span);
+				li.tabIndex = i++;
+				newContainer.appendChild(li);
     });
 
 
