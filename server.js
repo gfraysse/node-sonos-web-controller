@@ -169,8 +169,66 @@ socketServer.sockets.on('connection', function (socket) {
 	});
     });
 
-    socket.on('list-radios', function (data) {
+// plug-in
+    socket.on('list-live-mp3', function (data) {
+	console.log(data);
+	fs.readdir ('/mnt/nfs/torrents/mp3_320k/', function (err, files) {
+	    console.log("err=",err);
+	    console.log("files=",files);
+	    
+	    socket.emit('browse-live-mp3', files);
+	});
+    });
+
+    socket.on('browse-live-mp3-file', function (data) {
 	console.log(data)
+	file = '/mnt/nfs/torrents/mp3_320k/' + data.artist;
+	fs.stat (file, function (err, stats) {
+	    if (!err) {
+		if (stats.isDirectory ()) {
+		    fs.readdir (file, function (err, files) {
+			var isMP3dir = false;
+			var mp3Files = [];
+			var otherFiles = [];
+			files.forEach (function(file) {
+			    if (file.indexOf ('.mp3') != -1) {
+				isMP3dir = true;
+				mp3Files.push (file);
+				return;
+			    }
+			    else {
+				//GF otherFiles.push (file);
+			    }
+			});
+			if (isMP3dir) {
+			    console.log("isMP3dir")
+			    socket.emit('live-mp3-directory', data.artist, mp3Files, otherFiles);
+			}
+			else {
+			    console.log("isMP3dir NOT")
+			    socket.emit('browse-live-mp3', files);
+			    //socket.emit('browse-live-mp3-file', {uuid: Sonos.currentState.selectedZone, artist: li.dataset.title});
+			}
+		    });
+		}
+		else {
+		    var player = discovery.getPlayerByUUID(data.uuid);
+		    if (!player) return;
+
+		    player.replaceWithTrack(data.title, data.uri, function (success) {
+			if (success) player.play();
+		    });
+		}
+	    }
+	    else {
+		console.log("err=",err);
+		console.log("stats=",stats);
+	    }
+	});
+    });
+
+    socket.on('list-radios', function (data) {
+	console.log(data);
 	var player = discovery.getPlayerByUUID(data.uuid);
 	if (!player) return;
 
@@ -208,24 +266,54 @@ socketServer.sockets.on('connection', function (socket) {
     });
 
   socket.on('play-track', function (data) {
-    console.log(data)
+    console.log('play-track');
+    console.log(data);
     var player = discovery.getPlayerByUUID(data.uuid);
     if (!player) return;
 
-    player.replaceWithTrack(data.title, data.uri, function (success) {
-      if (success) player.play();
-    });
+    console.log('play-track');
+      if (data.title == "CompleteAlbum") {
+//	  console.log('play-track alltitle=',data.alltitle);
+	  player.replaceWithListOfTracks(data.alltitle, data.uri, function (success) {
+	      if (success) {
+		  console.log("playing...");
+		  player.play();
+	      }
+	      else {
+		  console.log("NOT playing...");	    
+	      }
+      });
+      }
+      else {
+	  player.replaceWithTrack(data.title, data.uri, function (success) {
+	      if (success) {
+		  console.log("playing...");
+		  player.play();
+	      }
+	      else {
+		  console.log("NOT playing...");	    
+	      }
+	  
+	  });
+      }
   });
 
-  socket.on('queue-track', function (data) {
-    console.log(data)
-    var player = discovery.getPlayerByUUID(data.uuid);
-    if (!player) return;
+    socket.on('queue-track', function (data) {
+	console.log(data)
+	var player = discovery.getPlayerByUUID(data.uuid);
+	if (!player) return;
 
-    player.addURIToQueue(data.uri, "", function (success) {
-      if (success) console.log(data.title," added to queue");
+	uris = data.uri.split (',');
+	uris.forEach (function(uri) {
+	    console.log ("adding uri=",uri);
+      	    player.addURIToQueue(uri, "", function (success) {
+		console.log ("added uri=",uri);
+	    });
+	});
+	//GF	  player.addURIToQueue(data.uri, "", function (success) {
+	//if (success) console.log(data.uri," added to queue");
+	//    });
     });
-  });
 
 /*
   socket.on('display-track-menu', function (data) {
@@ -274,6 +362,12 @@ socketServer.sockets.on('connection', function (socket) {
     for (var action in data.state) {
       player[action](data.state[action]);
     }
+  });
+
+  socket.on('clear-queue', function (data) {
+      console.log("clearQueue");
+      var player = discovery.getPlayerByUUID(data.uuid);
+      player.clearQueue();
   });
 
   socket.on('volume', function (data) {
@@ -346,6 +440,7 @@ function loadQueue(uuid, socket) {
     var player = discovery.getPlayerByUUID(uuid);
     player.getQueue(startIndex, requestedCount, function (success, queue) {
       if (!success) return;
+	console.log('getqueue', uuid, queue); //GF
       socket.emit('queue', {uuid: uuid, queue: queue});
 
       if (!queues[uuid] || queue.startIndex == 0) {
